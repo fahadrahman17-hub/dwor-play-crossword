@@ -1,0 +1,9 @@
+{
+  "name": "dwor-play",
+  "version": "1.0.0",
+  "description": "DWOR PLAY: team word scramble, online",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" },
+  "dependencies": { "ws": "^8.18.0" }
+}

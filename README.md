@@ -23,3 +23,6 @@ Host: open the link > Host a new game > add words and teams > Create game > shar
 Players: open the invite link, type a name, tap Join, choose a team. Others can just watch.
 
 Answer modes: players type the word (auto-checked), or say it out loud and the host taps Check answer, then Correct / Wrong.
+
+## Crossword game
+Open /crossword on your site. The host builds one crossword per team and sets the minutes per team. Teams play one at a time; the fastest finisher wins (or the most correct words if nobody finishes).

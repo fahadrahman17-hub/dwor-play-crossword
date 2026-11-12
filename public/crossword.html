@@ -101,8 +101,8 @@ select{width:auto}
 <button class="p big" id="next">Next: design the layouts</button>
 <div id="notes" class="warn hint"></div>
 <div id="lays"></div>
-<div class="card hidden" id="opts"><label for="lim">Time limit (minutes)</label><input id="lim" type="number" min="1" max="90" value="15" style="width:100px">
- <div class="hint"><label style="display:inline;font-weight:400"><input type="checkbox" id="first" checked style="width:auto"> End the game as soon as one team finishes (otherwise it runs until everyone finishes or time runs out)</label></div></div>
+<div class="card hidden" id="opts"><label for="lim">Minutes for each team</label><input id="lim" type="number" min="1" max="90" value="15" style="width:100px">
+ <div class="hint">Teams play one at a time. The team that finishes fastest wins. If nobody finishes, the team with the most correct words wins.</div></div>
 <button class="p big hidden" id="make">Create game</button>
 </section>
 <section id="view" class="hidden"></section>
@@ -243,7 +243,7 @@ $('make').onclick=()=>{
  const puz=L.map(p=>({name:p.name,words:p.pl.map(x=>({w:x.w,q:x.q,r:x.r,c:x.c,d:x.d}))}));
  const bad=puz.findIndex(p=>!p.words.length);
  if(bad>=0){alert('Place at least one word for '+puz[bad].name+' first.');return}
- sess=null;conn(()=>send({t:'create',limit:+$('lim').value||15,first:$('first').checked,puzzles:puz}))};
+ sess=null;conn(()=>send({t:'create',limit:+$('lim').value||15,puzzles:puz}))};
 // ---------- views ----------
 function gridH(d,hl){const c=new Map();
  d.words.forEach(w=>{for(let k=0;k<w.len;k++){const key=K(w.r+(w.d?k:0),w.c+(w.d?0:k)),x=c.get(key)||{ch:'',num:0,done:false,hl:false};
@@ -257,10 +257,11 @@ function cluesH(d,hl,click){const li=dir=>d.words.filter(w=>w.d===dir).sort((a,b
 function logH(d){return d.log.slice().reverse().map(l=>'<div class="lgr '+(l.ok?'ok':'no')+'">'+(l.ok?'✓':'✗')+' <b>'+esc(l.g)+'</b> · '+lab(l.n,l.d)+' · ⏱ '+fm(l.el)+' <span class="mu">('+clk(l.ts)+(l.nick?', '+esc(l.nick):'')+')</span></div>').join('')||'<div class="mu">No attempts yet.</div>'}
 function teamCard(s,i){const d=s.d[i],u=s.sum[i];
  return '<div class="card"><h2>'+esc(s.tn[i])+' <small class="mu">'+u.s+'/'+u.t+' solved · '+u.x+' wrong'+(u.f!==null?' · finished '+fm(u.f):'')+'</small></h2><div class="gw">'+gridH(d)+'</div>'+cluesH(d,null,false)+'<h3>Attempts with time stamps</h3><div class="logbox">'+logH(d)+'</div></div>'}
-function scoreH(s){return '<div class="sb">'+s.tn.map((n,i)=>{const u=s.sum[i];return '<div class="t'+(me.team===i?' on':'')+'"><span>'+esc(n)+'</span><b>'+u.s+'/'+u.t+'</b><div class="bar"><i style="width:'+(u.t?u.s/u.t*100:0)+'%"></i></div><div class="hint">'+(u.f!==null?'✓ finished '+fm(u.f):u.x+' wrong')+'</div></div>'}).join('')+'</div>'}
+const st=(s,i)=>{const u=s.sum[i];return u.f!==null?'✓ finished '+fm(u.f):s.p==='play'&&i===s.cur?'▶ playing now':u.pd?'time up':s.p==='ready'&&i===s.cur?'up next':'waiting'};
+function scoreH(s){return '<div class="sb">'+s.tn.map((n,i)=>{const u=s.sum[i];return '<div class="t'+((s.p==='play'||s.p==='ready')&&i===s.cur?' on':'')+'"><span>'+esc(n)+(me.team===i?' (you)':'')+'</span><b>'+u.s+'/'+u.t+'</b><div class="bar"><i style="width:'+(u.t?u.s/u.t*100:0)+'%"></i></div><div class="hint">'+st(s,i)+(u.x?' · '+u.x+' wrong':'')+'</div></div>'}).join('')+'</div>'}
 const head=s=>'<div class="big-h">Game code: <b style="font-size:1.3rem;letter-spacing:2px">'+esc(s.c.toUpperCase())+'</b>'+(s.watch?' · '+s.watch+' watching':'')+'</div>';
 function lobbyH(s){const link=location.origin+'/crossword?g='+s.c,hl=link+'&k='+((sess&&sess.key)||'');
- return head(s)+(me.host?'<div class="card"><h3>Link for teams</h3><div class="link">'+esc(link)+'</div><h3 style="margin-top:14px">Your host link</h3><div class="link">'+esc(hl)+'</div><div class="hint">Keep the host link private. Time limit: '+Math.round(s.lim/60)+' min'+(s.first?'. The game ends as soon as one team finishes.':'.')+'</div></div>':'<div class="card"><div class="hint">Time limit: '+Math.round(s.lim/60)+' min'+(s.first?'. The game ends as soon as one team finishes.':'.')+'</div></div>')+
+ return head(s)+(me.host?'<div class="card"><h3>Link for teams</h3><div class="link">'+esc(link)+'</div><h3 style="margin-top:14px">Your host link</h3><div class="link">'+esc(hl)+'</div><div class="hint">Keep the host link private. Each team gets '+Math.round(s.lim/60)+' min and plays one at a time.</div></div>':'<div class="card"><div class="hint">Each team gets '+Math.round(s.lim/60)+' min and plays one at a time.</div></div>')+
  '<div class="card"><h3>'+(me.host?'Teams':'Pick your team')+'</h3>'+s.tn.map((n,i)=>'<div class="rk"><div class="m"><b>'+esc(n)+'</b><div class="hint">'+(s.sum[i].m.map(esc).join(', ')||'no players yet')+' · '+s.sum[i].t+' words</div></div>'+(me.host?'':'<button data-a="team" data-i="'+i+'" class="'+(me.team===i?'p':'')+'">'+(me.team===i?'Joined ✓':'Join')+'</button>')+'</div>').join('')+'</div>'+
  (me.host?'<button class="p big" data-a="start">Start game</button>':'<p class="s" style="text-align:center">Waiting for the host to start…</p>')}
 function endH(s){const top=s.rank[0],u=s.sum[top],none=u.s===0;
@@ -279,10 +280,13 @@ function updPlay(s){const i=me.team,d=s.d[i],u=s.sum[i];
  const w=sel&&d.words.find(x=>x.num===sel.n&&x.d===sel.d);
  $('sl').textContent=u.f!==null?'🎉 Your team finished in '+fm(u.f)+'!':w?'Answering '+lab(w.num,w.d)+' ('+w.len+' letters): '+(w.q||''):'Tap a clue below, type the word, then press Submit.';
  $('frm').classList.toggle('hidden',u.f!==null)}
-function render(){const s=last,mode=s.p==='lobby'?'lobby':s.p==='end'?'end':(!me.host&&me.team>=0)?'play'+me.team:'watch';
- if(mode!==built){built=mode;if(mode==='lobby')sel=null;skel(mode)}
+function readyH(s){const i=s.cur,mine=!me.host&&me.team===i;
+ return head(s)+'<div class="card" style="text-align:center"><div class="big-h">Up next</div><h2 style="font-size:2rem;margin:6px 0">'+esc(s.tn[i])+'</h2><div class="tm">⏱ '+fm(s.lim*1000)+'</div><p class="s">'+(mine?'That’s your team! Get ready.':me.host?'Tell the team to get ready, then start the timer.':'Waiting for the host to start the timer…')+'</p>'+(me.host?'<button class="p big" data-a="begin">Start timer</button><div class="row" style="margin-top:8px"><button data-a="end">End game now</button></div>':'')+'</div><div class="card">'+scoreH(s)+'</div>'}
+function watchH(s){return head(s)+'<div class="card" style="text-align:center"><div class="big-h">Now playing: <b>'+esc(s.tn[s.cur])+'</b></div><div class="tm" id="tm" style="font-size:2.2rem"></div>'+(me.host?'<div class="row" style="justify-content:center"><button data-a="endturn">End this turn</button><button data-a="end">End game now</button></div>':'<p class="s">'+(me.team>=0?'Your team plays later. Watch the current team.':'You’re watching. Pick a team in the lobby to play.')+'</p>')+'</div><div class="card">'+scoreH(s)+'</div>'+teamCard(s,s.cur)}
+function render(){const s=last,mode=s.p==='lobby'?'lobby':s.p==='end'?'end':s.p==='ready'?'ready':(!me.host&&me.team===s.cur)?'play'+me.team:'watch';
+ if(mode!==built){built=mode;if(mode==='lobby'||mode==='ready')sel=null;skel(mode)}
  if(mode.startsWith('play'))updPlay(s);
- else $('dyn').innerHTML=mode==='lobby'?lobbyH(s):mode==='end'?endH(s):head(s)+'<div class="card" style="text-align:center"><div class="tm" id="tm" style="font-size:2.2rem"></div>'+(me.host?'<button data-a="end">End game now</button>':'<p class="s">You’re watching. Pick a team in the lobby to play.</p>')+'</div><div class="card">'+scoreH(s)+'</div>'+s.d.map((d,i)=>teamCard(s,i)).join('')}
+ else $('dyn').innerHTML=mode==='lobby'?lobbyH(s):mode==='end'?endH(s):mode==='ready'?readyH(s):watchH(s)}
 function submit(){const a=$('ans');if(!sel){$('sl').textContent='Tap a clue first.';return}if(!a.value.trim())return;send({t:'submit',n:sel.n,d:sel.d,g:a.value});a.value='';a.focus()}
 $('view').onclick=e=>{const li=e.target.closest('li[data-n]');
  if(li&&last&&last.p==='play'){sel={n:+li.dataset.n,d:+li.dataset.d};updPlay(last);const a=$('ans');if(a)a.focus();return}
